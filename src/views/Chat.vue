@@ -1,23 +1,29 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 
+const AUTH_TOKEN = 'Fn1u6Yhk01hVi3zW';
+
+// 聊天发起
 const query = ref('hello');
 const responseMode = ref('streaming');
 const userId = ref('66693174');
 const conversationId = ref('');
+
+// 聊天文字
 const messages = ref([]);
 const error = ref(null);
+
+// URL  
 const file = ref(null);
 const uploadResponse = ref(null);
 
-const AUTH_TOKEN = 'Fn1u6Yhk01hVi3zW';
-
-// button
+// button 处理上传文件，赋值file
 const handleFileUpload = (event) => {
   file.value = event.target.files[0];
 };
 
+// return URL uploadResponse.value.url
 const uploadFile = async () => {
   if (!file.value) {
     error.value = "Please select a file to upload.";
@@ -43,15 +49,31 @@ const uploadFile = async () => {
   }
 };
 
-const sendMessage = async () => {
+// 发起聊天
+const pipe_choice = async () => {
+  // 清空对话
   messages.value = [];
-
+  // 检测是否有图片上传
   let fileUrl = '';
   if (file.value) {
     await uploadFile();
     fileUrl = uploadResponse.value ? uploadResponse.value.url : '';
   }
 
+  if (checkQuery.value) {
+    messages.value.push('风格迁移');
+  } else {
+    await oppo_chat(fileUrl);
+  }
+};
+
+// 检测 query 中是否包含 "风格"
+const checkQuery = computed(() => {
+  return query.value.includes('风格');
+});
+
+// 发起聊天请求
+const oppo_chat = async (fileUrl) => {
   try {
     const response = await axios.post('/agentplatform/app_api/chat', {
       query: query.value,
@@ -67,7 +89,8 @@ const sendMessage = async () => {
       responseType: 'text' // Ensure responseType is set to 'text'
     });
 
-    const text = response.data;
+    const text = response.data; // 数据流
+    // 获取对应文字
     const parsedMessages = text.split('\n\n').map(item => {
       try {
         return JSON.parse(item.replace(/^data:\s*/, ''));
@@ -76,6 +99,7 @@ const sendMessage = async () => {
       }
     }).filter(item => item !== null);
 
+    // 文字后处理
     const fullMessage = parsedMessages.map(message => message.answer).join(' ').replace(/\s+/g, ' ').trim();
     messages.value.push(fullMessage);
 
@@ -84,27 +108,23 @@ const sendMessage = async () => {
     console.error('Network error details:', err);
   }
 };
+
 </script>
+
+
 <template>
-  <div id="app">
+  <div id="Chat">
     <h1>Chat API</h1>
     <div>
       <label for="query">Query:</label>
       <input id="query" v-model="query" type="text" />
     </div>
-    <div>
-      <label for="responseMode">Response Mode:</label>
-      <input id="responseMode" v-model="responseMode" type="text" />
-    </div>
-    <div>
-      <label for="userId">User ID:</label>
-      <input id="userId" v-model="userId" type="text" />
-    </div>
-    <div>
+    <!-- <div>
       <label for="conversationId">Conversation ID:</label>
       <input id="conversationId" v-model="conversationId" type="text" />
-    </div>
-    <button @click="sendMessage">Send Message</button>
+    </div> -->
+
+    <button @click="pipe_choice">Send Message</button>
     <div v-if="messages.length > 0">
   <h2>Responses</h2>
   <div v-for="(message, index) in messages" :key="index">
@@ -112,14 +132,23 @@ const sendMessage = async () => {
   </div>
 </div>
 
+    <div v-if="uploadResponse">
+      <h2>Upload Response</h2>
+      <p>URL: {{ uploadResponse.url }}</p>
+      <img :src="uploadResponse.url" alt="Uploaded Image" v-if="uploadResponse.url" />
+    </div>
+
     <div v-if="error">
       <p>Error: {{ error }}</p>
     </div>
+
   </div>
+
+
   <form @submit.prevent="uploadFile">
       <input type="file" @change="handleFileUpload" />
       <button type="submit">Upload File</button>
-    </form>
+  </form>
 </template>
 
 
