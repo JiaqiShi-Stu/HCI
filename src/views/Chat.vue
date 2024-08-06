@@ -1,6 +1,4 @@
 <script setup>
-
-
 import { ref } from 'vue';
 import axios from 'axios';
 
@@ -11,18 +9,48 @@ const conversationId = ref('');
 const messages = ref([]);
 const error = ref(null);
 const file = ref(null);
+const uploadResponse = ref(null);
 
 const AUTH_TOKEN = 'Fn1u6Yhk01hVi3zW';
 
-const handleFileChange = (event) => {
+// button
+const handleFileUpload = (event) => {
   file.value = event.target.files[0];
 };
 
+const uploadFile = async () => {
+  if (!file.value) {
+    error.value = "Please select a file to upload.";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file.value);
+  formData.append("user", userId.value);
+
+  try {
+    const response = await axios.post('/agentplatform/app_api/plugins/files/upload', formData, {
+      headers: {
+        Authorization: `Bearer ${AUTH_TOKEN}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    uploadResponse.value = response.data.data;
+    error.value = null;
+  } catch (err) {
+    error.value = `Error: ${err.message} - ${err.response ? err.response.status : ''}`;
+    console.error('Network error details:', err);
+  }
+};
+
 const sendMessage = async () => {
-  // Clear messages before sending a new request
   messages.value = [];
 
-  const fileUrl = file.value ? URL.createObjectURL(file.value) : '';
+  let fileUrl = '';
+  if (file.value) {
+    await uploadFile();
+    fileUrl = uploadResponse.value ? uploadResponse.value.url : '';
+  }
 
   try {
     const response = await axios.post('/agentplatform/app_api/chat', {
@@ -56,11 +84,7 @@ const sendMessage = async () => {
     console.error('Network error details:', err);
   }
 };
-
-
-
 </script>
-
 <template>
   <div id="app">
     <h1>Chat API</h1>
@@ -92,4 +116,18 @@ const sendMessage = async () => {
       <p>Error: {{ error }}</p>
     </div>
   </div>
+  <form @submit.prevent="uploadFile">
+      <input type="file" @change="handleFileUpload" />
+      <button type="submit">Upload File</button>
+    </form>
 </template>
+
+
+
+<style>
+img {
+  max-width: 100%;
+  height: auto;
+}
+</style>
+
