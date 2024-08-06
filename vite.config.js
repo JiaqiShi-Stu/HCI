@@ -8,7 +8,7 @@ export default defineConfig({
       '/agentplatform': {
         target: 'https://open.oppomobile.com',
         changeOrigin: true,
-        secure: false, // 这行代码允许代理到未安全（HTTPS）站点
+        secure: false,
         rewrite: (path) => path.replace(/^\/agentplatform/, '/agentplatform')
       }
     }
