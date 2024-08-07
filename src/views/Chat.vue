@@ -18,6 +18,9 @@ const error = ref(null);
 const file = ref(null);
 const uploadResponse = ref(null);
 
+// 加载状态
+const isLoading = ref(false);
+
 // button 处理上传文件，赋值file
 const handleFileUpload = (event) => {
   file.value = event.target.files[0];
@@ -34,6 +37,8 @@ const uploadFile = async () => {
   formData.append("file", file.value);
   formData.append("user", userId.value);
 
+  isLoading.value = true;
+
   try {
     const response = await axios.post('/agentplatform/app_api/plugins/files/upload', formData, {
       headers: {
@@ -46,6 +51,8 @@ const uploadFile = async () => {
   } catch (err) {
     error.value = `Error: ${err.message} - ${err.response ? err.response.status : ''}`;
     console.error('Network error details:', err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -60,8 +67,11 @@ const pipe_choice = async () => {
     fileUrl = uploadResponse.value ? uploadResponse.value.url : '';
   }
 
+  isLoading.value = true;
+
   if (checkQuery.value) {
     messages.value.push('风格迁移');
+    isLoading.value = false;
   } else {
     await oppo_chat(fileUrl);
   }
@@ -100,17 +110,25 @@ const oppo_chat = async (fileUrl) => {
     }).filter(item => item !== null);
 
     // 文字后处理
-    const fullMessage = parsedMessages.map(message => message.answer).join(' ').replace(/\s+/g, ' ').trim();
+    const fullMessage = parsedMessages.map(message => message.answer).join('').replace(/\s+/g, '').trim();
     messages.value.push(fullMessage);
+
+    // 检测并提取链接
+    const urlRegex = /https?:\/\/[^\s]+/g;
+    const matchedUrls = fullMessage.match(urlRegex);
+    if (matchedUrls && matchedUrls.length > 0) {
+      imageUrl.value = matchedUrls[0];
+    }
 
   } catch (err) {
     error.value = `Error: ${err.message} - ${err.response ? err.response.status : ''}`;
     console.error('Network error details:', err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
 </script>
-
 
 <template>
   <div id="Chat">
@@ -119,18 +137,21 @@ const oppo_chat = async (fileUrl) => {
       <label for="query">Query:</label>
       <input id="query" v-model="query" type="text" />
     </div>
-    <!-- <div>
-      <label for="conversationId">Conversation ID:</label>
-      <input id="conversationId" v-model="conversationId" type="text" />
-    </div> -->
 
     <button @click="pipe_choice">Send Message</button>
+    
+    <div v-if="isLoading">
+      <p>Loading...</p>
+    </div>
+
+
+    
     <div v-if="messages.length > 0">
-  <h2>Responses</h2>
-  <div v-for="(message, index) in messages" :key="index">
-    <p>{{message}}</p>
-  </div>
-</div>
+      <h2>Responses</h2>
+      <div v-for="(message, index) in messages" :key="index">
+        <p>{{message}}</p>
+      </div>
+    </div>
 
     <div v-if="uploadResponse">
       <h2>Upload Response</h2>
@@ -138,25 +159,19 @@ const oppo_chat = async (fileUrl) => {
       <img :src="uploadResponse.url" alt="Uploaded Image" v-if="uploadResponse.url" />
     </div>
 
+    <div v-if="imageUrl">
+      <h2>Image</h2>
+      <img :src="imageUrl" alt="Response Image" />
+    </div>
+
     <div v-if="error">
       <p>Error: {{ error }}</p>
     </div>
-
   </div>
 
-
   <form @submit.prevent="uploadFile">
-      <input type="file" @change="handleFileUpload" />
-      <button type="submit">Upload File</button>
+    <input type="file" @change="handleFileUpload" />
+    <button type="submit">Upload File</button>
   </form>
 </template>
-
-
-
-<style>
-img {
-  max-width: 100%;
-  height: auto;
-}
-</style>
 
